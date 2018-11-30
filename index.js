@@ -23,9 +23,10 @@ async function getFiles(dir) {
     return files.reduce((a, f) => a.concat(f), [])
 }
 
-// a helper function that returns the absolutePath from the relative path
+
+// a helper function that returns the absolutePath from the project
 function absolutePath(relativeLocation) {
-    return path.join(__dirname, relativeLocation)
+    return path.join(process.cwd(), relativeLocation)
 }
 
 const server = {
@@ -36,9 +37,9 @@ const server = {
         codeFolder: "./code",
         computerGeneratedFolder: "./computer-generated-code",
         bundlerOptions: { // see https://parceljs.org/api.html for options
-            outDir: './computer-generated-code/dist',
-            cacheDir: './computer-generated-code/.cache',
-            outFile: 'index.html',
+            outDir: absolutePath('./computer-generated-code/dist'),
+            cacheDir: absolutePath('./computer-generated-code/.cache'),
+            outFile: absolutePath('index.html'),
         },
         middlewareSetup: () => {
             // add your own!
@@ -64,10 +65,10 @@ const server = {
         // TODO create computer-generated if it doesnt exist
         // add js library
         let jsLibraryLocation = `${server.settings.computerGeneratedFolder}/special.js`
-        fs.writeFile(jsLibraryLocation, `require("good-dom").global()`, err => err && console.log(err))
+        fs.writeFile(absolutePath(jsLibraryLocation), `require("good-dom").global()`, err => err && console.log(err))
         // create the html file
         let locationOfHtml = `${server.settings.computerGeneratedFolder}/.website.html`
-        fs.writeFile(locationOfHtml, `<body></body><script src="../${jsLibraryLocation}"></script><script src="../${server.settings.websiteFile}"></script>`, err => err && console.log(err))
+        fs.writeFile(absolutePath(locationOfHtml), `<body></body><script src="../${jsLibraryLocation}"></script><script src="../${server.settings.websiteFile}"></script>`, err => err && console.log(err))
         
         // 
         // Setup bundler
@@ -80,7 +81,7 @@ const server = {
         //
         // Setup backend connections
         //
-        let listOfFiles = await getFiles(server.settings.codeFolder)
+        let listOfFiles = await getFiles(absolutePath(server.settings.codeFolder))
         let backendFunctions = []
         for (let each of listOfFiles) {
             // if the function returns truthy
