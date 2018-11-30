@@ -1,6 +1,6 @@
 {
     "name": "quik-server",
-    "version": "1.0.2",
+    "version": "1.1.0",
     "description": "A better way of webdev",
     "main": "index.js",
     "scripts": {
@@ -25,6 +25,7 @@
         "express": "^4.16.4",
         "parcel-bundler": "^1.10.3",
         "socket.io": "^2.2.0",
-        "good-dom": "^3.1.2"
+        "good-dom": "^3.1.2",
+        "socket.io-client":"^2.2.0",
     }
 }

@@ -9,25 +9,7 @@ const http = require('http')
 const socketIo = require('socket.io')
 const { promisify } = require('util')
 
-// a helper function that recusively gets all the files in a directory
-async function getFiles(dir) {
-    const readdir = promisify(fs.readdir)
-    const stat    = promisify(fs.stat)
-    const subdirs = await readdir(dir)
-    const files   = await Promise.all(
-        subdirs.map(async subdir => {
-            const res = path.resolve(dir, subdir)
-            return (await stat(res)).isDirectory() ? getFiles(res) : res
-        })
-    )
-    return files.reduce((a, f) => a.concat(f), [])
-}
-
-
-// a helper function that returns the absolutePath from the project
-function absolutePath(relativeLocation) {
-    return path.join(process.cwd(), relativeLocation)
-}
+const { getFiles, absolutePath, set } = require("./helpers")
 
 const server = {
     settings : {},
@@ -57,15 +39,112 @@ const server = {
         server.app.use(express.json())
         server.app.use(express.urlencoded({ extended: false }))
         
+        // 
+        // generate the backend fucntions
+        // 
+        let listOfFiles = await getFiles(absolutePath(server.settings.codeFolder))
+        let backendFunctions = {}
+        let backendObjectForFrontend = {}
+        for (let each of listOfFiles) {
+            // if the function returns truthy
+            if (server.settings.automaticBackendImporter(each)) {
+                // then import the file
+                let importedModule = require(each);
+                // if its a function then include it
+                if (importedModule instanceof Function) {
+                    // convert "/_Programming/quik-app/code/tryme.backend.js"
+                    // into "code/tryme" then into just "tryme"
+                    let simplePath = (path.relative(process.cwd(), each)).replace(/(\.backend|)\.js/,"");
+                    let findCodeFolder = new RegExp(`\^${server.settings.codeFolder}/`, 'i');
+                    simplePath = ("./"+simplePath).replace(findCodeFolder, "")
+                    let keyList = simplePath.split("/")
+                    set(backendObjectForFrontend, keyList, simplePath)
+                    backendFunctions[simplePath] = importedModule;
+                }
+            }
+        }
+        server.io.on('connection', (socket) => {
+            // setup a listener for the function
+            socket.on("backend", async ({ functionPath, argument }) => {
+                // send the output right back to the client
+                socket.emit('backendResponse', await backendFunctions[functionPath](argument))
+            })
+        })
 
-        // 
+        //
         // Setup wrapping files
-        // 
-        // TODO remove everything in computer-generated on reload
-        // TODO create computer-generated if it doesnt exist
+        //
         // add js library
         let jsLibraryLocation = `${server.settings.computerGeneratedFolder}/special.js`
-        fs.writeFile(absolutePath(jsLibraryLocation), `require("good-dom").global()`, err => err && console.log(err))
+        fs.writeFile(absolutePath(jsLibraryLocation), `require("good-dom").global()
+            window.backend = ${JSON.stringify(backendObjectForFrontend)}
+            window.io = require("socket.io-client")
+            window.socket = new io.connect("/", {
+                'reconnection': false
+            })
+            // a helper for setting nested values 
+            function set(obj, attributeList, value) {
+                if (attributeList instanceof Array) {
+                    try {
+                        var lastAttribute = attributeList.pop()
+                        for (var elem of attributeList) {
+                            // create each parent if it doesnt exist
+                            if (!(obj[elem] instanceof Object)) {
+                                obj[elem] = {}
+                            }
+                            // change the object reference be the nested element
+                            obj = obj[elem]
+                        }
+                        obj[lastAttribute] = value
+                    } catch (error) {
+                    }
+                }
+            }
+            // a helper for getting nested values 
+            var get = (obj, keyList) => {
+                for (var each of keyList) {
+                    try { obj = obj[each] }
+                    catch (e) { return null }
+                }
+                return obj == null ? null : obj
+            }
+            // a helper for ... well ..recursively getting All Attributes Of an object
+            var recursivelyAllAttributesOf = (obj) => {
+                // if not an object then add no attributes
+                if (!(obj instanceof Object)) {
+                    return []
+                }
+                // else check all keys for sub-attributes
+                var output = []
+                for (let eachKey of Object.keys(obj)) {
+                    // add the key itself (alone)
+                    output.push([eachKey])
+                    // add all of its children
+                    let newAttributes = recursivelyAllAttributesOf(obj[eachKey])
+                    // if nested
+                    for (let eachNewAttributeList of newAttributes) {
+                        // add the parent key
+                        eachNewAttributeList.unshift(eachKey)
+                        output.push(eachNewAttributeList)
+                    }
+                }
+                return output
+            }
+            let callBackend = (functionPath, argument) => {
+                socket.emit("backend", { functionPath, argument })
+                return new Promise(resolve => socket.on("backendResponse", response => resolve(response)))
+            }
+            let createBackendCaller = (backendPath) => (argument) => callBackend(backendPath, argument)
+
+            for (let each of recursivelyAllAttributesOf(window.backend)) {
+                let value = get(window.backend, each)
+                if (value instanceof Object) {
+                    continue
+                }
+                // convert it from a string into a function
+                set(window.backend, each, createBackendCaller(value))
+            }
+        `, err => err && console.log(err))
         // create the html file
         let locationOfHtml = `${server.settings.computerGeneratedFolder}/.website.html`
         fs.writeFile(absolutePath(locationOfHtml), `<body></body><script src="../${jsLibraryLocation}"></script><script src="../${server.settings.websiteFile}"></script>`, err => err && console.log(err))
@@ -78,34 +157,11 @@ const server = {
         // Let express use the bundler middleware, this will let Parcel handle every request over your express server
         server.app.use(server.bundler.middleware())
         
-        //
-        // Setup backend connections
-        //
-        let listOfFiles = await getFiles(absolutePath(server.settings.codeFolder))
-        let backendFunctions = []
-        for (let each of listOfFiles) {
-            // if the function returns truthy
-            if (server.settings.automaticBackendImporter(each)) {
-                // then import the file
-                let importedModule = require(each);
-                // if its a function then include it
-                if (importedModule instanceof Function) {
-                    backendFunctions[each] = importedModule;
-                }
-            }
-        }
-        server.io.on('connection', (socket) => {
-            // setup a listener for the function
-            socket.on("backend", async ({ functionPath, argument }) => {
-                // send the output right back to the client
-                socket.emit('backendResponse', await backendFunctions[functionPath](argument))
-            })
-        })
     },
     start: async () => {
         // apply the settings
         server.settings = Object.assign(server.defaultSettings, server.settings)
-        // 
+        // run setups
         server.beforeStart()
         server.settings.middlewareSetup()
         server.httpServer.listen(server.settings.port, server.settings.onStart)
