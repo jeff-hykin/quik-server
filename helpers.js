@@ -1,3 +1,7 @@
+const fs = require("fs")
+const path = require("path")
+const { promisify } = require('util')
+
 // a helper function that recusively gets all the files in a directory
 module.exports.getFiles = async function(dir) {
     const readdir = promisify(fs.readdir)
