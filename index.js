@@ -74,9 +74,12 @@ const server = {
         //
         // Setup wrapping files
         //
-        // add js library
+        // add a little js to the frontend 
         let jsLibraryLocation = `${server.settings.computerGeneratedFolder}/special.js`
-        fs.writeFile(absolutePath(jsLibraryLocation), `require("good-dom").global()
+        fs.writeFile(absolutePath(jsLibraryLocation), `
+            // good dom Library
+            require("good-dom").global()
+            // setup of the "backend" object
             window.backend = ${JSON.stringify(backendObjectForFrontend)}
             window.io = require("socket.io-client")
             window.socket = new io.connect("/", {
