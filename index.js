@@ -6,7 +6,6 @@ const express = require("express")
 const Bundler = require("parcel-bundler")
 const http = require('http')
 
-
 const { getFiles, absolutePath, set } = require("./helpers") // TODO remove getFiles
 
 let privateSettingsObject = Symbol("settings")
