@@ -1,0 +1,29 @@
+{
+    "name": "quik-server",
+    "version": "1.0.0",
+    "description": "A better way of webdev",
+    "main": "index.js",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/jeff-hykin/quik-server.git"
+    },
+    "keywords": [
+        "quick",
+        "server",
+        "quik"
+    ],
+    "author": "Jeff Hykin",
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/jeff-hykin/quik-server/issues"
+    },
+    "homepage": "https://github.com/jeff-hykin/quik-server#readme",
+    "dependencies": {
+        "express": "^4.16.4",
+        "parcel-bundler": "^1.10.3",
+        "socket.io": "^2.2.0"
+    }
+}
