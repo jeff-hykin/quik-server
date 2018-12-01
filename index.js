@@ -1,32 +1,13 @@
 //
 // Library Imports
 //
-const fs = require("fs")
+const fs      = require("fs")
 const express = require("express")
 const Bundler = require("parcel-bundler")
-const http = require('http')
+const http    = require('http')
+const { makeSureModuleExists, absolutePath } = require("./helpers")
 
-const { getFiles, absolutePath, set } = require("./helpers") // TODO remove getFiles
-
-let privateSettingsObject = Symbol("settings")
 const server = {
-    [privateSettingsObject]: {
-        port: 3000,
-        websiteFile: "./website.jsx",
-        codeFolder: "./code",
-        computerGeneratedFolder: "./computer-generated-code",
-        bundlerOptions: { // see https://parceljs.org/api.html for options
-            outDir: absolutePath('./computer-generated-code/dist'),
-            cacheDir: absolutePath('./computer-generated-code/.cache'),
-            outFile: absolutePath('index.html'),
-        },
-        middlewareSetup: () => {
-            // add your own!
-        },
-        onStart: () => {
-            console.log("Running on port: ", server.settings.port)
-        },
-    },
     beforeStart: async () => {
         // 
         // Standard middleware
@@ -49,7 +30,6 @@ const server = {
             } else {
                 code = each
             }
-            // TODO add a code-is-string check here
             frontendCode += `\n;;\n${code}\n;;\n`
         }
         fs.writeFile(absolutePath(jsLibraryLocation), frontendCode, err => err && console.log(err))
@@ -73,6 +53,7 @@ const server = {
     },
     frontendCodePeices : [],
     quikAdd : (moduleName, ...args) => {
+        makeSureModuleExists(moduleName)
         let theModule = require(moduleName)
         // asyncly add it to the frontend code
         if (theModule.generateFrontend instanceof Function) {
@@ -85,6 +66,25 @@ const server = {
 //
 // Create the setting setter/getter
 //
+let privateSettingsObject = Symbol("settings")
+// here are the default settings 
+server[privateSettingsObject] = {
+        port: 3000,
+        websiteFile: "./website.jsx",
+        codeFolder: "./code",
+        computerGeneratedFolder: "./computer-generated-code",
+        bundlerOptions: { // see https://parceljs.org/api.html for options
+            outDir: absolutePath('./computer-generated-code/dist'),
+            cacheDir: absolutePath('./computer-generated-code/.cache'),
+            outFile: absolutePath('index.html'),
+        },
+        middlewareSetup: () => {
+            // add your own!
+        },
+        onStart: () => {
+            console.log("Running on port: ", server.settings.port)
+        },
+    }
 Object.defineProperty(server, "settings",{
     get: function() {
         return this[privateSettingsObject]
@@ -95,9 +95,9 @@ Object.defineProperty(server, "settings",{
     }
 })
 
-// 
+//
 // Setup Express
-// 
+//
 server.app = express()
 server.httpServer = http.Server(server.app)
 
