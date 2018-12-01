@@ -13,7 +13,7 @@ module.exports.makeSureModuleExists = (moduleName) => {
     }
     // if the module isnt included then install it
     if (!nodeModuleNames.includes(moduleName)) {
-        console.log(`\n\nThe module ${moduleName} doesn't seem to be installed\n    You can install modules with:     npm install -s MODULE_NAME\n    I'll go ahead and install ${moduleName} for you`)
+        console.log(`\n\nThe module ${moduleName} doesn't seem to be installed\n    I'll go ahead and install ${moduleName} for you\n    You can install modules with:  npm install -s ${moduleName}\n`)
         execSync(`npm install -s ${moduleName}`)
     }
 }
