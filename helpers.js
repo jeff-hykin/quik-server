@@ -22,3 +22,6 @@ module.exports.makeSureModuleExists = (moduleName) => {
 module.exports.absolutePath = function(relativeLocation) {
     return path.join(process.cwd(), relativeLocation)
 }
+
+// make awaitable if not async (if async then this function effectively does nothing)
+module.exports.makeAwaitable = async (outputOfOtherFunction) => outputOfOtherFunction

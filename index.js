@@ -3,102 +3,171 @@
 //
 const fs      = require("fs")
 const express = require("express")
-const Bundler = require("parcel-bundler")
-const http    = require('http')
-const { makeSureModuleExists, absolutePath } = require("./helpers")
+const Bundler = require("parcel")
+const { makeSureModuleExists, absolutePath, makeAwaitable } = require("./helpers")
 
-const server = {
-    beforeStart: async () => {
-        // 
-        // Standard middleware
-        // 
-        server.app.use(express.json())
-        server.app.use(express.urlencoded({ extended: false }))
+// todo
+    // make a way to easily switch to https, https://stackoverflow.com/questions/11744975/enabling-https-on-express-js
+    // add an "onInitialInstall" event to modules
+    // add documentation for
+        // onMiddlewareSetup
+        // generateFrontend
+        // afterBundlerSetup
+        // afterServerStarted
 
-        //
-        // Setup wrapping files
-        //
-        // add a little js to the frontend 
-        let jsLibraryLocation = `${server.settings.computerGeneratedFolder}/special.js`
-        // get all the frontend code
-        let frontendCode = ""
-        for (let each of server.frontendCodePeices) {
-            let code 
-            // if function was async
-            if (each instanceof Promise) {
-                code = await each
-            } else {
-                code = each
-            }
-            frontendCode += `\n;;\n${code}\n;;\n`
-        }
-        fs.writeFile(absolutePath(jsLibraryLocation), frontendCode, err => err && console.log(err))
-        // create the html file
-        let locationOfHtml = `${server.settings.computerGeneratedFolder}/.website.html`
-        fs.writeFile(absolutePath(locationOfHtml), `<body></body><script src="../${jsLibraryLocation}"></script><script src="../${server.settings.websiteFile}"></script>`, err => err && console.log(err))
-        
-        // 
-        // Setup bundler
-        //
-        server.app.use(express.static(server.settings.computerGeneratedFolder))
-        server.bundler = new Bundler(absolutePath(locationOfHtml), server.settings.bundlerOptions)
-        // Let express use the bundler middleware, this will let Parcel handle every request over your express server
-        server.app.use(server.bundler.middleware())
-    },
-    start: async () => {
-        // run setups
-        server.beforeStart()
-        server.settings.middlewareSetup()
-        server.httpServer.listen(server.settings.port, server.settings.onStart)
-    },
-    frontendCodePeices : [],
+// 
+// Quik manager
+//
+let quikModuleManager = {
+    argsKey : Symbol("args"),
+    moduleNameKey : Symbol("moduleName"),
+    frontendGlobals : {},
+    backendGlobals : {},
+    list : [],
     quikAdd : (moduleName, ...args) => {
         makeSureModuleExists(moduleName)
-        let theModule = require(moduleName)
-        // asyncly add it to the frontend code
-        if (theModule.generateFrontend instanceof Function) {
-            let code = theModule.generateFrontend(server,...args)
-            server.frontendCodePeices.push(code)
+        let eachModule = require(moduleName)
+        // attach the name and args to the module
+        eachModule[quikModuleManager.argsKey] = args
+        eachModule[quikModuleManager.moduleNameKey] = moduleName
+        // add them to the module list
+        quikModuleManager.list.push(eachModule)
+        return eachModule
+    },
+    runAll : (callbackName) => {
+        // for each module 
+        for (let each of quikModuleManager.list) {
+            // see if it has the callback
+            if (each[callbackName] instanceof Function) {
+                // if it does then run it with app and args
+                let args = each[quikModuleManager.argsKey]
+                each[callbackName](app, ...args)
+            }
         }
-        return theModule.backend
-    }
+    },
+}
+
+// 
+// 
+// setup app obj
+// 
+// 
+let app = Object.assign(express(), {
+    server : null,
+    quikAdd : quikModuleManager.quikAdd,
+    start: async () => {
+        // if there isnt a server, then use http and attach it to the app object
+        if (app.server == null) {
+            app.server = require('http').createServer(app)
+        }
+        // 
+        // setup middleware
+        // 
+        await makeAwaitable(app.settings.systemMiddlewareSetup())
+        await makeAwaitable(app.settings.afterSystemMiddlewareSetup())
+        // 
+        // setup frontend
+        // 
+        // get the string of the frontend
+        let frontendCode = await makeAwaitable(app.settings.systemFrontendSetup())
+        await makeAwaitable(app.settings.afterSystemFrontendSetup())
+        // create the files for the frontend
+        let pathToHtmlEntrypoint = app.settings.generateFrontendFiles(app.settings.websiteFile, app.settings.computerGeneratedFolder, frontendCode)
+        // 
+        // setup bundler
+        // 
+        await makeAwaitable(app.settings.systemBundlerSetup(pathToHtmlEntrypoint, app.settings.computerGeneratedFolder, app.settings.bundlerOptions))
+        await makeAwaitable(app.settings.afterSystemBundlerSetup())
+        // 
+        // start server
+        // 
+        app.server.listen(app.settings.port, app.settings.port, (...args)=>{
+            quikModuleManager.runAll("afterServerStarted")
+            app.settings.afterServerStarted(...args)
+        })
+    },
+})
+let defaultSettings = {
+    port: 3000,
+    host: 'localhost',
+    websiteFile: "./website.jsx",
+    codeFolder: "./code",
+    computerGeneratedFolder: "./computer-generated-code",
+    bundlerOptions: { // see https://parceljs.org/api.html for options
+        outDir: absolutePath('./computer-generated-code/dist'),
+        cacheDir: absolutePath('./computer-generated-code/.cache'),
+        outFile: absolutePath('index.html'),
+    },
+    // 
+    // 
+    // runtime setups
+    // 
+    //
+        // 
+        // middleware
+        // 
+        afterSystemMiddlewareSetup : async () => {}, // nothing (let user override this)
+        systemMiddlewareSetup : async () => {
+            // default middleware
+            app.use(express.json())
+            app.use(express.urlencoded({ extended: false }))
+            // run all the middleware
+            quikModuleManager.runAll("onMiddlewareSetup")
+        },
+        // 
+        // Frontend
+        // 
+        afterSystemFrontendSetup : async () => {}, // nothing (let user override this)
+        systemFrontendSetup : async () => {
+            let frontendCode = "let quik = require('quik-client')"
+            for (let each of quikModuleManager.list) {
+                // if the module has a frontend generator function 
+                if (each.generateFrontend instanceof Function) {
+                    // go ahead and generate the frontend code
+                    let code = await makeAwaitable(each.generateFrontend(app, ...each[quikModuleManager.argsKey]))
+                    // TODO: add warning here if code is not a string
+                    // concat the output
+                    frontendCode += `\n;;(async()=>{\n${code}\n})();;\n`
+                }
+            }
+            return frontendCode
+        },
+        generateFrontendFiles : (filePathForWebsiteJavascriptEntrypoint, folderPathForAutoGeneratedFiles, frontendCodeAsString) => {
+            // Create the JS file
+            let jsLibraryLocation = `${folderPathForAutoGeneratedFiles}/special.js`
+            fs.writeFile(absolutePath(jsLibraryLocation), frontendCodeAsString, err => err && console.log(err))
+            // create the html file
+            let locationOfHtml = `${folderPathForAutoGeneratedFiles}/.website.html`
+            fs.writeFile(absolutePath(locationOfHtml), `<body></body><script src="../${jsLibraryLocation}"></script><script src="../${filePathForWebsiteJavascriptEntrypoint}"></script>`, err => err && console.log(err))
+            return locationOfHtml
+        },
+        // 
+        // Bundler
+        // 
+        afterSystemBundlerSetup : async () => {}, // nothing (let user override this)
+        systemBundlerSetup : async (pathToHtmlEntrypoint, pathToAutoGeneratedFolder, bundlerOptionsObj) => {
+            app.use(express.static(pathToAutoGeneratedFolder))
+            let bundler = new Bundler(pathToHtmlEntrypoint, bundlerOptionsObj)
+            // Let express use the bundler middleware, this will let Parcel handle every request over your express server
+            app.use(bundler.middleware())
+            // run all 
+            quikModuleManager.runAll("afterBundlerSetup")
+        },
+        // 
+        // Server start
+        //
+        afterServerStarted : async (...args) => {
+            console.log(`Server running on ${app.settings.host}:${app.settings.port}`)
+        },
 }
 //
-// Create the setting setter/getter
+// Create the "settings" setter and getter for app
 //
-let privateSettingsObject = Symbol("settings")
-// here are the default settings 
-server[privateSettingsObject] = {
-        port: 3000,
-        websiteFile: "./website.jsx",
-        codeFolder: "./code",
-        computerGeneratedFolder: "./computer-generated-code",
-        bundlerOptions: { // see https://parceljs.org/api.html for options
-            outDir: absolutePath('./computer-generated-code/dist'),
-            cacheDir: absolutePath('./computer-generated-code/.cache'),
-            outFile: absolutePath('index.html'),
-        },
-        middlewareSetup: () => {
-            // add your own!
-        },
-        onStart: () => {
-            console.log("Running on port: ", server.settings.port)
-        },
-    }
-Object.defineProperty(server, "settings",{
-    get: function() {
-        return this[privateSettingsObject]
-    },
-    set: function(newValue) {
-        // override the default settings with new settings
-        Object.assign(this[privateSettingsObject], newValue)
-    }
+let combinedSettings = Object.assign(app.settings, defaultSettings)
+Object.defineProperty(app, "settings", {
+    get: ()=>combinedSettings,
+    // override old settings with new settings
+    set: (newValue) => Object.assign(combinedSettings, newValue)
 })
 
-//
-// Setup Express
-//
-server.app = express()
-server.httpServer = http.Server(server.app)
-
-module.exports = server
+module.exports = app
