@@ -4,9 +4,9 @@ const execSync = require('child_process').execSync;
 
 // a helper for installing node modules
 let nodeModuleNames = []
-module.exports.makeSureModuleExists = (moduleName) => {
     let whereNodeModulesShouldBe = path.join(process.cwd(), "node_modules")
     // if nodeModuleNames is empty
+module.exports.makeSureModuleExists = (moduleName) => {
     if (nodeModuleNames.length == 0) {
         // then populate it
         nodeModuleNames = fs.readdirSync(whereNodeModulesShouldBe)
@@ -25,3 +25,11 @@ module.exports.absolutePath = function(relativeLocation) {
 
 // make awaitable if not async (if async then this function effectively does nothing)
 module.exports.makeAwaitable = async (outputOfOtherFunction) => outputOfOtherFunction
+
+module.exports.writeFile = (path, data, opts = 'utf8') =>
+    new Promise((resolve, reject) => {
+        fs.writeFile(path, data, opts, (err) => {
+            if (err) reject(err)
+            else resolve()
+        })
+    })
