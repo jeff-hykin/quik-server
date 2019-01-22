@@ -1,12 +1,12 @@
 const fs = require("fs")
 const path = require("path")
-const execSync = require('child_process').execSync;
+const execSync = require('child_process').execSync
 
 // a helper for installing node modules
 let nodeModuleNames = []
+module.exports.makeSureModuleExists = (moduleName) => {
     let whereNodeModulesShouldBe = path.join(process.cwd(), "node_modules")
     // if nodeModuleNames is empty
-module.exports.makeSureModuleExists = (moduleName) => {
     if (nodeModuleNames.length == 0) {
         // then populate it
         nodeModuleNames = fs.readdirSync(whereNodeModulesShouldBe)

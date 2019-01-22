@@ -1,6 +1,6 @@
 {
     "name": "quik-server",
-    "version": "2.0.2",
+    "version": "2.0.6",
     "description": "A better way of webdev",
     "main": "index.js",
     "scripts": {
@@ -24,6 +24,7 @@
     "dependencies": {
         "express": "^4.16.4",
         "quik-client": "^1.0.0",
-        "parcel-bundler": "^1.11.0"
+        "parcel-bundler": "^1.11.0",
+        "mkdirp": "^0.5.1"
     }
 }
