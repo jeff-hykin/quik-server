@@ -80,8 +80,8 @@ let app = Object.assign(express(), {
     },
 })
 let defaultBundlerSettings = { // see https://parceljs.org/api.html for options
-    outDir: absolutePath('./computer-generated-code/dist'),
-    cacheDir: absolutePath('./computer-generated-code/.cache'),
+    outDir: absolutePath('./computerGeneratedCode/dist'),
+    cacheDir: absolutePath('./computerGeneratedCode/.cache'),
     outFile: absolutePath('index.html'),
 }
 let defaultSettings = {
@@ -89,7 +89,7 @@ let defaultSettings = {
     host: 'localhost',
     websiteFile: "./website.jsx",
     codeFolder: "./code",
-    computerGeneratedFolder: "./computer-generated-code",
+    computerGeneratedFolder: "./computerGeneratedCode",
     bundlerOptions: {},
     // 
     // 
