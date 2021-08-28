@@ -3,7 +3,7 @@
 //
 const fs      = require("fs")
 const express = require("express")
-const Bundler = require("parcel")
+const Bundler = require("parcel-bundler")
 const mkdirp = require('mkdirp')
 const { makeSureModuleExists, absolutePath, makeAwaitable, writeFile } = require("./helpers")
 
