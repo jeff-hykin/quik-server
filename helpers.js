@@ -22,7 +22,10 @@ module.exports.makeSureModuleExists = (moduleName) => {
 
 // a helper function that returns the absolutePath from the project
 module.exports.absolutePath = function(relativeLocation) {
-    return path.join(path.dirname(nodeModulesPath)), relativeLocation)
+    if (path.isAbsolute(relativeLocation)) {
+        return relativeLocation
+    }
+    return path.join(path.dirname(nodeModulesPath), relativeLocation)
 }
 
 // make awaitable if not async (if async then this function effectively does nothing)
