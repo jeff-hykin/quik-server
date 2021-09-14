@@ -1,15 +1,17 @@
 const fs = require("fs")
 const path = require("path")
 const execSync = require('child_process').execSync
+const { walkUpUntil } = require("@!!!!!/walk-up")
+
+const nodeModulesPath = walkUpUntil("node_modules")
 
 // a helper for installing node modules
 let nodeModuleNames = []
 module.exports.makeSureModuleExists = (moduleName) => {
-    let whereNodeModulesShouldBe = path.join(process.cwd(), "node_modules")
     // if nodeModuleNames is empty
     if (nodeModuleNames.length == 0) {
         // then populate it
-        nodeModuleNames = fs.readdirSync(whereNodeModulesShouldBe)
+        nodeModuleNames = fs.readdirSync(nodeModulesPath)
     }
     // if the module isnt included then install it
     if (!nodeModuleNames.includes(moduleName)) {
@@ -20,7 +22,7 @@ module.exports.makeSureModuleExists = (moduleName) => {
 
 // a helper function that returns the absolutePath from the project
 module.exports.absolutePath = function(relativeLocation) {
-    return path.join(process.cwd(), relativeLocation)
+    return path.join(path.dirname(nodeModulesPath)), relativeLocation)
 }
 
 // make awaitable if not async (if async then this function effectively does nothing)
