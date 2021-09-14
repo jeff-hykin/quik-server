@@ -1,6 +1,6 @@
 {
     "name": "quik-server",
-    "version": "2.2.1",
+    "version": "2.3.1",
     "description": "A better way of webdev",
     "main": "index.js",
     "scripts": {
